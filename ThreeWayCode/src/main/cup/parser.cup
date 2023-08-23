@@ -1,0 +1,83 @@
+package org.cunoc;
+
+import java_cup.runtime.*;
+import java.util.ArrayList;
+
+class MyParser;
+
+parser code {:
+    ArrayList<String> codeLines = new ArrayList<String>();
+    int tempCount = 1;
+
+    private String generateTemp() {
+        return "t" + tempCount++;
+    }
+
+    private void emit(String code) {
+        codeLines.add(code);
+    }
+
+    private void emitAssignment(String target, String expression) {
+        emit(target + " = " + expression);
+    }
+
+    private void emitBinaryOperation(String target, String op, String operand1, String operand2) {
+        emitAssignment(target, operand1 + " " + op + " " + operand2);
+    }
+
+    private String getLastTemp() {
+        return "t" + (tempCount - 1);
+    }
+:};
+
+/* TERMINAL SYMBOLS */
+terminal Double NUM;
+terminal ID, PLUS, MINUS, MULT, DIV, LPAREN, RPAREN, EQUALS, SEMICOLON;
+
+/* NO TERMINAL SYMBOLS */
+non terminal String number_operation, term, factor, assignment, program, operator;
+
+/* PRECEDENCE RULES */
+precedence left PLUS, MINUS;
+precedence left MULT, DIV;
+
+/* START SYMBOL */
+start with program;
+
+program ::= assignment:a                                                     {: RESULT = a; :}
+          | program:p assignment:a                                           {: :}
+          ;
+
+assignment ::= ID:id EQUALS number_operation:n SEMICOLON                     {:
+                                                                                emitAssignment(id.toString(), getLastTemp());
+                                                                             :}
+             ;
+
+number_operation ::= term:t                                                  {: RESULT = t; :}
+                   | number_operation:n1 PLUS term:n2                        {: RESULT = generateTemp();
+                                                                                emitBinaryOperation(RESULT, "+", n1, n2);
+                                                                             :}
+                   | number_operation:n1 MINUS term:n2                       {: RESULT = generateTemp();
+                                                                                emitBinaryOperation(RESULT, "-", n1, n2);
+                                                                             :}
+                   ;
+
+term ::= factor:f                                                            {: RESULT = f; :}
+       | term:t MULT factor:f                                                {: RESULT = generateTemp();
+                                                                                emitBinaryOperation(RESULT, "*", t, f);
+                                                                             :}
+       | term:t DIV factor:f                                                 {: RESULT = generateTemp();
+                                                                                emitBinaryOperation(RESULT, "/", t, f);
+                                                                             :}
+       ;
+
+factor ::= NUM:n                                                             {: RESULT = n.toString(); :}
+         | ID:n                                                              {: RESULT = n.toString(); :}
+         | MINUS NUM:n                                                       {: RESULT = generateTemp();
+                                                                                emitAssignment(RESULT, "-" + n.toString());
+                                                                             :}
+         | MINUS ID:n                                                        {: RESULT = generateTemp();
+                                                                                emitAssignment(RESULT, "-" + n.toString());
+                                                                             :}
+         | LPAREN number_operation:n RPAREN                                  {: RESULT = n; :}
+         ;
